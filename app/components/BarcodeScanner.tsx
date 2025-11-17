@@ -20,7 +20,7 @@ export default function BarcodeScanner({ onDetected }: BarcodeScannerProps) {
 
     codeReader
       .decodeFromVideoDevice(
-        undefined,          // ingen device-id, ta default-kamera
+        undefined, // default-kamera
         videoRef.current,
         (result, _err, controls) => {
           if (stopped) return;
@@ -28,8 +28,8 @@ export default function BarcodeScanner({ onDetected }: BarcodeScannerProps) {
           if (result) {
             const text = result.getText();
             if (text) {
-              onDetected(text);  // skicka koden upp till sidan
-              controls?.stop();  // stoppa scanning efter träff
+              onDetected(text);   // skicka upp koden till parent
+              controls?.stop();   // stoppa kameran efter träff
               stopped = true;
             }
           }
@@ -41,7 +41,8 @@ export default function BarcodeScanner({ onDetected }: BarcodeScannerProps) {
 
     return () => {
       stopped = true;
-      codeReader.reset();
+      // Typdefinitionerna saknar reset(), men funktionen finns i runtime.
+      (codeReader as any).reset();
     };
   }, [onDetected]);
 
