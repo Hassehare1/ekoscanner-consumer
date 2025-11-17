@@ -10,10 +10,10 @@ type BarcodeScannerProps = {
 export default function BarcodeScanner({ onDetected }: BarcodeScannerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const controlsRef = useRef<any>(null);
+  const lastCodeRef = useRef<string | null>(null); // för att undvika spam på samma kod
 
   useEffect(() => {
     const codeReader = new BrowserMultiFormatReader();
-    let stopped = false;
 
     if (!videoRef.current) {
       return;
@@ -26,20 +26,20 @@ export default function BarcodeScanner({ onDetected }: BarcodeScannerProps) {
         (result, _err, controls) => {
           controlsRef.current = controls;
 
-          if (stopped || !result) return;
+          if (!result) return;
 
           const text = result.getText();
           if (!text) return;
 
+          // trigga bara om koden är ny jämfört med den senaste
+          if (text === lastCodeRef.current) return;
+          lastCodeRef.current = text;
+
           try {
-            // Här går vi “ut” till din logik i page.tsx
-            onDetected(text);
+            onDetected(text); // din logik i page.tsx
           } catch (err) {
             console.error('Error in onDetected callback:', err);
           }
-
-          controls?.stop();
-          stopped = true;
         }
       )
       .catch((err) => {
@@ -47,7 +47,6 @@ export default function BarcodeScanner({ onDetected }: BarcodeScannerProps) {
       });
 
     return () => {
-      stopped = true;
       if (controlsRef.current && typeof controlsRef.current.stop === 'function') {
         controlsRef.current.stop();
       }
@@ -75,7 +74,7 @@ export default function BarcodeScanner({ onDetected }: BarcodeScannerProps) {
           marginTop: 8,
         }}
       >
-        Rikta kameran mot streckkoden tills den lästs in.
+        Rikta kameran mot streckkoden. Varje ny kod läses in automatiskt.
       </p>
     </div>
   );
