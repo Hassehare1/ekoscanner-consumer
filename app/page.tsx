@@ -1,6 +1,13 @@
 'use client';
 
 import { useState } from 'react';
+import dynamic from 'next/dynamic';
+
+// Ladda BarcodeScanner bara i browsern (inte på servern)
+const BarcodeScanner = dynamic(
+  () => import('./components/BarcodeScanner'),
+  { ssr: false }
+);
 
 type Product = {
   product_name?: string;
@@ -19,23 +26,28 @@ export default function HomePage() {
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiSummary, setAiSummary] = useState<string | null>(null);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  // Gemensam funktion för att hämta produkt + AI
+  async function runLookup(code: string) {
+    const trimmed = code.trim();
+
     setError(null);
     setAiError(null);
     setProduct(null);
     setAiSummary(null);
 
-    if (!barcode.trim()) {
-      setError('Skriv in en streckkod först.');
+    if (!trimmed) {
+      setError('Skriv in eller scanna en streckkod först.');
       return;
     }
+
+    // Enkel guard så vi inte spammar om scannern triggar flera gånger
+    if (loading || aiLoading) return;
 
     setLoading(true);
     try {
       // 1) Hämta produktdata från OpenFoodFacts
       const res = await fetch(
-        `https://world.openfoodfacts.org/api/v0/product/${barcode}.json`
+        `https://world.openfoodfacts.org/api/v0/product/${trimmed}.json`
       );
       const data = await res.json();
 
@@ -74,16 +86,43 @@ export default function HomePage() {
     }
   }
 
+  // Används när man klickar på knappen
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    await runLookup(barcode);
+  }
+
+  // Används när scannern hittar en kod
+  async function handleBarcodeDetected(scanned: string) {
+    if (!scanned) return;
+
+    // Om samma kod redan finns och vi precis visat resultat – hoppa över
+    if (scanned === barcode && product) return;
+
+    setBarcode(scanned); // fyll i inputfältet
+    await runLookup(scanned); // starta hämtning direkt
+  }
+
   return (
     <main className="page">
       <div className="card">
         <h1>Ekoscanner – Steg 1 (konsument)</h1>
         <p className="subtitle">
-          Testa genom att skriva in en EAN-kod från en matprodukt.
+          Testa genom att scanna eller skriva in en EAN-kod från en matprodukt.
           Vi frågar OpenFoodFacts om info om produkten och AI om en
           enkel hållbarhetsbeskrivning.
         </p>
 
+        {/* Scanner överst */}
+        <div style={{ marginBottom: '12px' }}>
+          <p style={{ fontSize: '0.8rem', marginBottom: '4px' }}>
+            Rikta kameran mot EAN-streckkoden. När den läses av fylls fältet
+            nedan i och produktinformationen hämtas automatiskt.
+          </p>
+          <BarcodeScanner onDetected={handleBarcodeDetected} />
+        </div>
+
+        {/* Manuell inmatning finns kvar som backup */}
         <form onSubmit={handleSubmit} className="form">
           <input
             type="text"
@@ -136,8 +175,8 @@ export default function HomePage() {
           justify-content: center;
           background: #020617;
           color: #e5e7eb;
-          font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
-            sans-serif;
+          font-family: system-ui, -apple-system, BlinkMacSystemFont,
+            'Segoe UI', sans-serif;
           padding: 24px;
         }
 
