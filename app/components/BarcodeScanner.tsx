@@ -4,7 +4,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import { BrowserMultiFormatReader } from '@zxing/browser';
 
 type BarcodeScannerProps = {
-  // Funktionen kommer från page.tsx och tar emot den skannade koden
   onDetected: (barcode: string) => void;
 };
 
@@ -15,7 +14,6 @@ export default function BarcodeScanner({ onDetected }: BarcodeScannerProps) {
 
   useEffect(() => {
     const codeReader = new BrowserMultiFormatReader();
-    let controls: ReturnType<typeof codeReader.decodeFromVideoDevice> | null = null;
 
     async function startScanner() {
       if (!videoRef.current) return;
@@ -24,17 +22,16 @@ export default function BarcodeScanner({ onDetected }: BarcodeScannerProps) {
         setErrorMessage(null);
         setIsScanning(true);
 
-        controls = codeReader.decodeFromVideoDevice(
-          null,
+        // OBS: undefined istället för null → TS blir nöjd
+        codeReader.decodeFromVideoDevice(
+          undefined,
           videoRef.current,
-          (result, err, _controls) => {
-            // Vissa fel är bara “brus” under scanning – ignorera dem
+          (result, err, controls) => {
             if (result) {
               const text = result.getText();
               if (text) {
-                onDetected(text); // Skicka upp koden till sidan
-                // Stoppa direkt efter en träff så att vi inte spammar
-                _controls.stop();
+                onDetected(text);       // skicka koden till parent
+                controls?.stop();       // stoppa scanning efter träff
                 setIsScanning(false);
               }
             }
@@ -42,19 +39,18 @@ export default function BarcodeScanner({ onDetected }: BarcodeScannerProps) {
         );
       } catch (err: any) {
         console.error(err);
-        setErrorMessage('Kunde inte starta kameran. Tillåt kamerabehörighet och testa igen.');
+        setErrorMessage(
+          'Kunde inte starta kameran. Tillåt kamerabehörighet och testa igen.'
+        );
         setIsScanning(false);
       }
     }
 
     startScanner();
 
+    // Rensa upp när komponenten avmonteras
     return () => {
-      if (controls) {
-        controls.then(c => c.stop()).catch(() => {});
-      } else {
-        codeReader.reset();
-      }
+      codeReader.reset();
     };
   }, [onDetected]);
 
@@ -73,17 +69,4 @@ export default function BarcodeScanner({ onDetected }: BarcodeScannerProps) {
         </span>
       </div>
 
-      {isScanning && (
-        <div className="text-xs text-gray-500">
-          Scannar efter streckkod…
-        </div>
-      )}
-
-      {errorMessage && (
-        <div className="text-sm text-red-600">
-          {errorMessage}
-        </div>
-      )}
-    </div>
-  );
-}
+      {isSca
