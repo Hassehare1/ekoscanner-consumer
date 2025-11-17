@@ -9,6 +9,7 @@ type BarcodeScannerProps = {
 
 export default function BarcodeScanner({ onDetected }: BarcodeScannerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const controlsRef = useRef<any>(null);
 
   useEffect(() => {
     const codeReader = new BrowserMultiFormatReader();
@@ -23,16 +24,22 @@ export default function BarcodeScanner({ onDetected }: BarcodeScannerProps) {
         undefined, // default-kamera
         videoRef.current,
         (result, _err, controls) => {
-          if (stopped) return;
+          controlsRef.current = controls;
 
-          if (result) {
-            const text = result.getText();
-            if (text) {
-              onDetected(text);   // skicka upp koden till parent
-              controls?.stop();   // stoppa kameran efter träff
-              stopped = true;
-            }
+          if (stopped || !result) return;
+
+          const text = result.getText();
+          if (!text) return;
+
+          try {
+            // Här går vi “ut” till din logik i page.tsx
+            onDetected(text);
+          } catch (err) {
+            console.error('Error in onDetected callback:', err);
           }
+
+          controls?.stop();
+          stopped = true;
         }
       )
       .catch((err) => {
@@ -41,8 +48,9 @@ export default function BarcodeScanner({ onDetected }: BarcodeScannerProps) {
 
     return () => {
       stopped = true;
-      // Typdefinitionerna saknar reset(), men funktionen finns i runtime.
-      (codeReader as any).reset();
+      if (controlsRef.current && typeof controlsRef.current.stop === 'function') {
+        controlsRef.current.stop();
+      }
     };
   }, [onDetected]);
 
