@@ -1,13 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 
 // Ladda BarcodeScanner bara i browsern (inte på servern)
-const BarcodeScanner = dynamic(
-  () => import('./components/BarcodeScanner'),
-  { ssr: false }
-);
+const BarcodeScanner = dynamic(() => import('./components/BarcodeScanner'), {
+  ssr: false,
+});
 
 type Product = {
   product_name?: string;
@@ -26,6 +25,43 @@ export default function HomePage() {
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiSummary, setAiSummary] = useState<string | null>(null);
 
+  // Historik på skannade koder
+  const [history, setHistory] = useState<string[]>([]);
+
+  // Ladda historiken från localStorage när sidan öppnas
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const stored = window.localStorage.getItem('scanHistory');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          setHistory(parsed);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to read history from localStorage:', err);
+    }
+  }, []);
+
+  // Lägg till kod i historiken (nyast först, inga dubletter)
+  function addToHistory(code: string) {
+    setHistory((prev) => {
+      const without = prev.filter((c) => c !== code);
+      const updated = [code, ...without].slice(0, 50); // max 50 rader
+
+      try {
+        if (typeof window !== 'undefined') {
+          window.localStorage.setItem('scanHistory', JSON.stringify(updated));
+        }
+      } catch (err) {
+        console.error('Failed to write history to localStorage:', err);
+      }
+
+      return updated;
+    });
+  }
+
   // Gemensam funktion för att hämta produkt + AI
   async function runLookup(code: string) {
     const trimmed = code.trim();
@@ -39,6 +75,9 @@ export default function HomePage() {
       setError('Skriv in eller scanna en streckkod först.');
       return;
     }
+
+    // Lägg till i historiken (även manuellt inskriven)
+    addToHistory(trimmed);
 
     // Enkel guard så vi inte spammar om scannern triggar flera gånger
     if (loading || aiLoading) return;
@@ -106,65 +145,95 @@ export default function HomePage() {
   return (
     <main className="page">
       <div className="card">
-        <h1>Ekoscanner – Steg 1 (konsument)</h1>
-        <p className="subtitle">
-          Testa genom att scanna eller skriva in en EAN-kod från en matprodukt.
-          Vi frågar OpenFoodFacts om info om produkten och AI om en
-          enkel hållbarhetsbeskrivning.
-        </p>
+        <div className="card-layout">
+          {/* Vänster: scanner + AI-resultat */}
+          <div className="card-left">
+            <h1>Ekoscanner – Steg 1 (konsument)</h1>
+            <p className="subtitle">
+              Testa genom att scanna eller skriva in en EAN-kod från en
+              matprodukt. Vi frågar OpenFoodFacts om info om produkten och AI om
+              en enkel hållbarhetsbeskrivning.
+            </p>
 
-        {/* Scanner överst */}
-        <div style={{ marginBottom: '12px' }}>
-          <p style={{ fontSize: '0.8rem', marginBottom: '4px' }}>
-            Rikta kameran mot EAN-streckkoden. När den läses av fylls fältet
-            nedan i och produktinformationen hämtas automatiskt.
-          </p>
-          <BarcodeScanner onDetected={handleBarcodeDetected} />
-        </div>
-
-        {/* Manuell inmatning finns kvar som backup */}
-        <form onSubmit={handleSubmit} className="form">
-          <input
-            type="text"
-            value={barcode}
-            onChange={(e) => setBarcode(e.target.value)}
-            placeholder="Ex: 7311870010970"
-          />
-          <button type="submit" disabled={loading}>
-            {loading ? 'Söker…' : 'Hämta info'}
-          </button>
-        </form>
-
-        {error && <div className="error">{error}</div>}
-
-        {product && (
-          <div className="product">
-            <h2>{product.product_name || 'Okänt produktnamn'}</h2>
-            {product.brands && <p>Varumärke: {product.brands}</p>}
-            {product.categories && (
-              <p className="categories">Kategorier: {product.categories}</p>
-            )}
-            {product.image_front_url && (
-              <img
-                src={product.image_front_url}
-                alt={product.product_name}
-              />
-            )}
-
-            <div className="ai-block">
-              <h3>AI – hållbarhetsprofil</h3>
-              {aiLoading && <p>Analyserar produktens profil…</p>}
-              {aiError && <p className="error">{aiError}</p>}
-              {aiSummary && <p className="ai-text">{aiSummary}</p>}
-              {!aiLoading && !aiSummary && !aiError && (
-                <p className="ai-placeholder">
-                  När du hämtar en produkt försöker AI ge en kort
-                  hållbarhetsbeskrivning här.
-                </p>
-              )}
+            {/* Scanner överst */}
+            <div style={{ marginBottom: '12px' }}>
+              <p style={{ fontSize: '0.8rem', marginBottom: '4px' }}>
+                Rikta kameran mot EAN-streckkoden. När den läses av fylls
+                fältet nedan i och produktinformationen hämtas automatiskt.
+              </p>
+              <BarcodeScanner onDetected={handleBarcodeDetected} />
             </div>
+
+            {/* Manuell inmatning finns kvar som backup */}
+            <form onSubmit={handleSubmit} className="form">
+              <input
+                type="text"
+                value={barcode}
+                onChange={(e) => setBarcode(e.target.value)}
+                placeholder="Ex: 7311870010970"
+              />
+              <button type="submit" disabled={loading}>
+                {loading ? 'Söker…' : 'Hämta info'}
+              </button>
+            </form>
+
+            {error && <div className="error">{error}</div>}
+
+            {product && (
+              <div className="product">
+                <h2>{product.product_name || 'Okänt produktnamn'}</h2>
+                {product.brands && <p>Varumärke: {product.brands}</p>}
+                {product.categories && (
+                  <p className="categories">
+                    Kategorier: {product.categories}
+                  </p>
+                )}
+                {product.image_front_url && (
+                  <img
+                    src={product.image_front_url}
+                    alt={product.product_name}
+                  />
+                )}
+
+                <div className="ai-block">
+                  <h3>AI – hållbarhetsprofil</h3>
+                  {aiLoading && <p>Analyserar produktens profil…</p>}
+                  {aiError && <p className="error">{aiError}</p>}
+                  {aiSummary && <p className="ai-text">{aiSummary}</p>}
+                  {!aiLoading && !aiSummary && !aiError && (
+                    <p className="ai-placeholder">
+                      När du hämtar en produkt försöker AI ge en kort
+                      hållbarhetsbeskrivning här.
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
-        )}
+
+          {/* Höger: historik */}
+          <aside className="card-history">
+            <h2>Historik</h2>
+            {history.length === 0 ? (
+              <p className="history-empty">Inga skanningar ännu.</p>
+            ) : (
+              <ul className="history-list">
+                {history.map((code) => (
+                  <li
+                    key={code}
+                    className="history-item"
+                    onClick={() => {
+                      setBarcode(code);
+                      runLookup(code);
+                    }}
+                  >
+                    <span>{code}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </aside>
+        </div>
       </div>
 
       <style jsx>{`
@@ -182,12 +251,69 @@ export default function HomePage() {
 
         .card {
           width: 100%;
-          max-width: 520px;
+          max-width: 880px;
           background: #020617;
           border-radius: 16px;
           padding: 24px 20px;
           border: 1px solid #1f2937;
           box-shadow: 0 18px 35px rgba(0, 0, 0, 0.55);
+        }
+
+        .card-layout {
+          display: flex;
+          gap: 20px;
+          align-items: flex-start;
+        }
+
+        .card-left {
+          flex: 1;
+        }
+
+        .card-history {
+          width: 220px;
+          border-left: 1px solid #1f2937;
+          padding-left: 12px;
+          font-size: 0.8rem;
+        }
+
+        .card-history h2 {
+          font-size: 0.9rem;
+          margin-bottom: 6px;
+        }
+
+        .history-empty {
+          font-size: 0.8rem;
+          color: #6b7280;
+        }
+
+        .history-list {
+          list-style: none;
+          padding: 0;
+          margin: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .history-item {
+          border: 1px solid #1f2937;
+          border-radius: 8px;
+          padding: 4px 6px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          font-size: 0.8rem;
+        }
+
+        .history-item:hover {
+          background: #020617;
+          border-color: #374151;
+        }
+
+        .history-item span {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
 
         h1 {
@@ -290,6 +416,25 @@ export default function HomePage() {
         .ai-placeholder {
           font-size: 0.8rem;
           color: #6b7280;
+        }
+
+        @media (max-width: 768px) {
+          .card {
+            max-width: 100%;
+          }
+
+          .card-layout {
+            flex-direction: column;
+          }
+
+          .card-history {
+            width: 100%;
+            border-left: none;
+            border-top: 1px solid #1f2937;
+            padding-left: 0;
+            padding-top: 12px;
+            margin-top: 12px;
+          }
         }
       `}</style>
     </main>
