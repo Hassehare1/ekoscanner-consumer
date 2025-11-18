@@ -10,7 +10,7 @@ type BarcodeScannerProps = {
 export default function BarcodeScanner({ onDetected }: BarcodeScannerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const controlsRef = useRef<any>(null);
-  const lastCodeRef = useRef<string | null>(null); // för att undvika spam på samma kod
+  const lastCodeRef = useRef<string | null>(null);
 
   useEffect(() => {
     const codeReader = new BrowserMultiFormatReader();
@@ -31,12 +31,12 @@ export default function BarcodeScanner({ onDetected }: BarcodeScannerProps) {
           const text = result.getText();
           if (!text) return;
 
-          // trigga bara om koden är ny jämfört med den senaste
+          // Undvik spam om samma kod läses om och om igen
           if (text === lastCodeRef.current) return;
           lastCodeRef.current = text;
 
           try {
-            onDetected(text); // din logik i page.tsx
+            onDetected(text); // här går vi vidare till page.tsx
           } catch (err) {
             console.error('Error in onDetected callback:', err);
           }
@@ -47,7 +47,10 @@ export default function BarcodeScanner({ onDetected }: BarcodeScannerProps) {
       });
 
     return () => {
-      if (controlsRef.current && typeof controlsRef.current.stop === 'function') {
+      if (
+        controlsRef.current &&
+        typeof controlsRef.current.stop === 'function'
+      ) {
         controlsRef.current.stop();
       }
     };

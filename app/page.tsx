@@ -145,9 +145,9 @@ export default function HomePage() {
   return (
     <main className="page">
       <div className="card">
-        <div className="card-layout">
+        <div className="layout">
           {/* Vänster: scanner + AI-resultat */}
-          <div className="card-left">
+          <div className="left">
             <h1>Ekoscanner – Steg 1 (konsument)</h1>
             <p className="subtitle">
               Testa genom att scanna eller skriva in en EAN-kod från en
@@ -156,8 +156,8 @@ export default function HomePage() {
             </p>
 
             {/* Scanner överst */}
-            <div style={{ marginBottom: '12px' }}>
-              <p style={{ fontSize: '0.8rem', marginBottom: '4px' }}>
+            <div className="scanner-block">
+              <p className="scanner-text">
                 Rikta kameran mot EAN-streckkoden. När den läses av fylls
                 fältet nedan i och produktinformationen hämtas automatiskt.
               </p>
@@ -212,7 +212,7 @@ export default function HomePage() {
           </div>
 
           {/* Höger: historik */}
-          <aside className="card-history">
+          <aside className="history">
             <h2>Historik</h2>
             {history.length === 0 ? (
               <p className="history-empty">Inga skanningar ännu.</p>
@@ -259,24 +259,24 @@ export default function HomePage() {
           box-shadow: 0 18px 35px rgba(0, 0, 0, 0.55);
         }
 
-        .card-layout {
+        .layout {
           display: flex;
           gap: 20px;
           align-items: flex-start;
         }
 
-        .card-left {
+        .left {
           flex: 1;
         }
 
-        .card-history {
+        .history {
           width: 220px;
           border-left: 1px solid #1f2937;
           padding-left: 12px;
           font-size: 0.8rem;
         }
 
-        .card-history h2 {
+        .history h2 {
           font-size: 0.9rem;
           margin-bottom: 6px;
         }
@@ -325,6 +325,16 @@ export default function HomePage() {
           font-size: 0.85rem;
           color: #9ca3af;
           margin-bottom: 18px;
+        }
+
+        .scanner-block {
+          margin-bottom: 12px;
+        }
+
+        .scanner-text {
+          font-size: 0.8rem;
+          margin-bottom: 4px;
+          color: #9ca3af;
         }
 
         .form {
@@ -423,11 +433,11 @@ export default function HomePage() {
             max-width: 100%;
           }
 
-          .card-layout {
+          .layout {
             flex-direction: column;
           }
 
-          .card-history {
+          .history {
             width: 100%;
             border-left: none;
             border-top: 1px solid #1f2937;
